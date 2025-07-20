@@ -1,0 +1,46 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f0f2f5;
+  padding: 20px;
+}
+
+.container {
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+h1 {
+  text-align: center;
+}
+
+.book-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.book-form input {
+  flex: 1;
+  padding: 8px;
+}
+
+.book-form button {
+  padding: 8px 12px;
+}
+
+.book-list {
+  list-style: none;
+  padding: 0;
+}
+
+.book-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  background: #f9f9f9;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
