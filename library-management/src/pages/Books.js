@@ -5,6 +5,7 @@ import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import { BookContext } from "../context/BookContext";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const Books = () => {
   const [showForm, setShowForm] = useState(false);
@@ -12,7 +13,7 @@ const Books = () => {
   const { addBook, updateBook, fetchBooks } = useContext(BookContext);
   const  navigator  = useNavigate();
   useEffect(() => {
-    fetchBooks(); // đảm bảo có dữ liệu khi load
+    fetchBooks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -23,14 +24,14 @@ const Books = () => {
 
   const handleSubmit = async (form) => {
     try {
+      
       if (editingBook) {
         await updateBook(form);
-        alert("Cập nhật sách thành công!");
+        toast.success("Cập nhật sách thành công!");
       } else {
         await addBook(form);
-        alert("Thêm sách thành công!");
+        toast.success("Thêm sách thành công!");
       }
-
       setShowForm(false);
       setEditingBook(null);
       return true;

@@ -3,7 +3,7 @@ import { FaQuestionCircle, FaShieldAlt, FaEnvelope } from 'react-icons/fa';
 const Footer = () => {
 
     return (
-        <footer className="bg-gray-800 text-white py-2 fixed bottom-0 left-0 w-full">
+        <footer className=" bg-gray-800 text-white py-2  left-0 w-full">
             <div className="flex flex-col md:flex-row justify-between items-center max-w-full mx-0 px-4">
                 <p className="mb-2 md:mb-0 text-sm font-semibold">
                       &copy; {new Date().getFullYear()} OU University.

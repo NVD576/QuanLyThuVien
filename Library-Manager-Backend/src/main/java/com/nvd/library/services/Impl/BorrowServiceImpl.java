@@ -24,35 +24,29 @@ public class BorrowServiceImpl implements BorrowService {
 
     @Override
     public Borrow getBorrowById(Integer borrowId) {
-        return   borrowRepository.findById(borrowId).orElse(null);
+        return  borrowRepository.findById(borrowId).orElse(null);
     }
 
     @Override
-    public Page<BorrowDTO> searchBorrows(String keyword, Pageable pageable) {
-        Page<Borrow> borrowPage;
-
-        if (keyword == null || keyword.trim().isEmpty()) {
-            borrowPage = borrowRepository.findAll(pageable);
-        } else {
-            borrowPage = borrowRepository.searchByUserOrBook(keyword.trim(), pageable);
-        }
-
-        return borrowPage.map(b -> {
-            String userFullName = b.getUser().getFirstName() + " " + b.getUser().getLastName();
-            String bookTitle = b.getPrintBook().getBook().getTitle();
-            return new BorrowDTO(
-                    b.getId(),
-                    b.getUser().getId(), // <- thêm userId
-                    b.getPrintBook().getId(),
-                    userFullName,
-                    bookTitle,
-                    b.getBorrowDate(),
-                    b.getDueDate(),
-                    b.getReturnDate(),
-                    b.getStatus()
-            );
-        });
+    public Page<BorrowDTO> searchBorrows(String keyword, String status, Pageable pageable) {
+        return borrowRepository.searchBorrows(status, keyword, pageable)
+                .map(b -> {
+                    String userFullName = b.getUser().getFirstName() + " " + b.getUser().getLastName();
+                    String bookTitle = b.getPrintBook().getBook().getTitle();
+                    return new BorrowDTO(
+                            b.getId(),
+                            b.getUser().getId(),
+                            b.getPrintBook().getId(),
+                            userFullName,
+                            bookTitle,
+                            b.getBorrowDate(),
+                            b.getDueDate(),
+                            b.getReturnDate(),
+                            b.getStatus()
+                    );
+                });
     }
+
 
     @Override
     public List<Borrow> getBorrowByUserId(Integer userId) {
@@ -82,5 +76,9 @@ public class BorrowServiceImpl implements BorrowService {
     @Override
     public void deleteBorrowById(Integer borrowId) {
         this.borrowRepository.deleteById(borrowId);
+    }
+    @Override
+    public int countActiveBorrowsByUser(Integer userId) {
+        return borrowRepository.countActiveBorrowsByUser(userId);
     }
 }

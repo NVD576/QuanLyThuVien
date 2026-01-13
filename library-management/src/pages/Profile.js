@@ -8,8 +8,8 @@ import {
   FaEdit,
 } from "react-icons/fa";
 import Cookies from "js-cookie";
-import LoadingSpinner from "../components/layouts/LoadingSpinner"; // Assuming you have a LoadingSpinner component
 import { authApis, endpoints } from "../configs/API";
+import LoadingSpinner from "../components/layouts/LoadingSpinner";
 
 const Profile = () => {
   const user = useContext(MyUserContext);
@@ -67,7 +67,6 @@ const Profile = () => {
         type: "login",
         payload: res.data,
       });
-      // Reset file input
       setIsEditing(false);
     } catch (err) {
       console.error("Lỗi cập nhật:", err);
@@ -133,7 +132,6 @@ const Profile = () => {
               />
             </div>
 
-            {/* Info Section */}
             <div className="w-full md:w-2/3">
               {isEditing ? (
                 <form onSubmit={handleSubmit}>

@@ -1,11 +1,11 @@
 import { useContext } from "react";
 import SearchBar from "./SearchBar";
-import Pagination from "./Pagination";
-import LoadingSpinner from "./layouts/LoadingSpinner";
+import Pagination from "./layouts/Pagination";
+import LoadingSpinner from "../components/layouts/LoadingSpinner";
 import { FaEdit, FaTrash, FaInfoCircle } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { BookContext } from "../context/BookContext";
-
+import toast from "react-hot-toast";
 const BookList = ({ handleEditBook }) => {
   const {
     books,
@@ -16,7 +16,15 @@ const BookList = ({ handleEditBook }) => {
     setCurrentPage,
     searchTerm,
   } = useContext(BookContext);
-
+  const handleDelete = async (id) => {
+    try {
+      await deleteBook(id);
+      toast.success("Xoá sách thành công!");
+    } catch (error) {
+      toast.error("Xoá sách thất bại!");
+      console.error("Failed to delete book:", error);
+    }
+  };
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -32,7 +40,6 @@ const BookList = ({ handleEditBook }) => {
             <thead className="table-light">
               <tr>
                 <th>ID</th>
-                <th>Mã sách</th>
                 <th>Tên sách</th>
                 <th>Tác giả</th>
                 <th>Nhà xuất bản</th>
@@ -47,20 +54,21 @@ const BookList = ({ handleEditBook }) => {
                 books.map((book) => (
                   <tr key={book.id}>
                     <td>{book.id || "N/A"}</td>
-                    <td>{book.code}</td>
                     <td>
                       <Link
-                        to={`/books/${book._id}`}
+                        to={`/books/${book.id}`}
                         className="text-decoration-none"
                       >
                         {book.title}
                       </Link>
                     </td>
-                    
+
                     <td>{book.author}</td>
                     <td>{book.publisher}</td>
                     <td>{book.publicationYear}</td>
-                    <td>{book.totalCopies}</td>
+                    <td>
+                      {book.availableCopies}/{book.totalCopies}
+                    </td>
                     <td>
                       <span
                         className={`badge ${
@@ -80,12 +88,12 @@ const BookList = ({ handleEditBook }) => {
                         </button>
                         <button
                           className="btn btn-sm btn-outline-danger"
-                          onClick={() => deleteBook(book.id)}
+                          onClick={() => handleDelete(book.id)}
                         >
                           <FaTrash />
                         </button>
                         <Link
-                          to={`/books/${book._id}`}
+                          to={`/books/${book.id}`}
                           className="btn btn-sm btn-outline-info"
                         >
                           <FaInfoCircle />

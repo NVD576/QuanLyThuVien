@@ -1,5 +1,6 @@
 package com.nvd.library.pojo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -13,19 +14,19 @@ import java.time.LocalDate;
 @Setter
 @Entity
 @Table(name = "librarian")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Librarian {
     @Id
     @Column(name = "librarian_id", nullable = false)
     private Integer id;
 
     @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.EAGER, optional = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "librarian_id", nullable = false)
     private User user;
 
-    @NotNull
-    @Column(name = "start_date", nullable = false)
+    @Column(name = "start_date")
     private LocalDate startDate;
 
 }

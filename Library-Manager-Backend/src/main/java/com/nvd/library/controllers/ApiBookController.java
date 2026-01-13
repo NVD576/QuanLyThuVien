@@ -2,6 +2,7 @@ package com.nvd.library.controllers;
 
 import com.nvd.library.dto.BookDTO;
 import com.nvd.library.pojo.Book;
+import com.nvd.library.repository.BookRepository;
 import com.nvd.library.services.BookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -20,6 +22,8 @@ import java.util.Map;
 public class ApiBookController {
     @Autowired
     private BookService bookService;
+    @Autowired
+    private BookRepository bookRepository;
 
     @GetMapping("/books")
     public ResponseEntity<Page<Book>> getAllBook(
@@ -27,6 +31,10 @@ public class ApiBookController {
             @PageableDefault(size = 8, sort = "id", direction = Sort.Direction.ASC) Pageable pageable){
         Page<Book> books =  bookService.getAllBook(allParams, pageable);
         return ResponseEntity.ok(books);
+    }
+    @GetMapping("/book/all")
+    public ResponseEntity<List<Book>> findBooks(){
+        return ResponseEntity.ok(this.bookRepository.findAll());
     }
 
     @GetMapping("/books/{id}")

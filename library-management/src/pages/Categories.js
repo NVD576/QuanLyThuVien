@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import useCategories from "../hooks/useCategories";
-import { Pencil, Trash2, PlusCircle, XCircle } from "lucide-react";
+import { Pencil, Trash2, PlusCircle, XCircle, Folder } from "lucide-react";
+import {  toast } from "react-hot-toast";
+import LoadingSpinner from "../components/layouts/LoadingSpinner"; 
 
 const Categories = () => {
   const [form, setForm] = useState({ id: null, name: "", description: "" });
@@ -12,6 +14,7 @@ const Categories = () => {
     updateCategory,
     deleteCategory,
     categories,
+    loading, // Assuming your hook provides a loading state
   } = useCategories();
 
   const handleInputChange = (e) => {
@@ -20,20 +23,24 @@ const Categories = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      toast.error("Tên danh mục không được để trống.");
+      return;
+    }
 
-    try {
-      if (form.id) {
-        await updateCategory(form);
-      } else {
-        await addCategory(form);
-      }
+    const isEditing = !!form.id;
+    const action = isEditing ? updateCategory(form) : addCategory(form);
 
+    const promise = action.then(() => {
       fetchCategories();
       handleCancel();
-    } catch (err) {
-      console.error("Lỗi khi lưu danh mục:", err);
-    }
+    });
+
+    toast.promise(promise, {
+      loading: isEditing ? 'Đang cập nhật...' : 'Đang thêm mới...',
+      success: isEditing ? 'Cập nhật thành công!' : 'Thêm danh mục thành công!',
+      error: 'Có lỗi xảy ra!',
+    });
   };
 
   const handleEdit = (category) => {
@@ -46,9 +53,13 @@ const Categories = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Bạn có chắc muốn xóa danh mục này không?")) {
-      await deleteCategory(id);
-      fetchCategories();
+    if (window.confirm("Bạn có chắc muốn xóa danh mục này không? Các sách liên quan cũng có thể bị ảnh hưởng.")) {
+      const promise = deleteCategory(id).then(() => fetchCategories());
+      toast.promise(promise, {
+        loading: 'Đang xóa...',
+        success: 'Xóa thành công!',
+        error: 'Xóa thất bại.',
+      });
     }
   };
 
@@ -58,133 +69,129 @@ const Categories = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-4xl font-extrabold text-indigo-700 mb-8 text-center">
-        Quản lý Danh mục
-      </h2>
-
-      <div className="flex justify-end mb-6">
-        <button
-          onClick={() => {
-            setShowForm(!showForm);
-            setForm({ id: null, name: "", description: "" });
-          }}
-          className={`flex items-center gap-2 px-5 py-2.5 text-white rounded-full font-medium shadow-md transition-all duration-200 ${
-            showForm
-              ? "bg-rose-500 hover:bg-rose-600"
-              : "bg-indigo-600 hover:bg-indigo-700"
-          }`}
-        >
-          {showForm ? (
-            <>
-              <XCircle size={18} />
-              Đóng form
-            </>
-          ) : (
-            <>
-              <PlusCircle size={18} />
-              Thêm danh mục
-            </>
-          )}
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="fixed inset-0 bg-opacity-40 z-50 flex items-center justify-center">
-          <div className="bg-white shadow-2xl border-l-4 border-indigo-600 p-8 rounded-xl w-full max-w-xl relative animate-fade-in">
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-full">
+  
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">
+                Quản lý Danh mục
+            </h2>
             <button
-              onClick={handleCancel}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
+                onClick={() => {
+                    setShowForm(true);
+                    setForm({ id: null, name: "", description: "" });
+                }}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-indigo-700 transition"
             >
-              ✖
+                <PlusCircle size={18} />
+                Thêm Danh mục
             </button>
-
-            <form onSubmit={handleSubmit}>
-              <h3 className="text-2xl font-bold mb-6 text-indigo-700">
-                {form.id ? "📁 Cập nhật danh mục" : "➕ Thêm danh mục mới"}
-              </h3>
-
-              <div className="grid gap-6">
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-2">
-                    Tên danh mục
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={form.name}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-2">
-                    Mô tả
-                  </label>
-                  <textarea
-                    name="description"
-                    value={form.description}
-                    onChange={handleInputChange}
-                    rows={2}
-                    className="w-full border border-gray-300 px-4 py-2 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 flex gap-4 justify-end">
-                <button
-                  type="submit"
-                  className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 transition"
-                >
-                  {form.id ? "💾 Cập nhật" : "➕ Thêm"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="bg-gray-400 text-white px-6 py-2 rounded-md hover:bg-gray-500"
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
-      )}
 
-      <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-        {categories.map((category) => (
-          <div
-            key={category.id}
-            className="bg-white border border-gray-200 shadow hover:shadow-xl hover:-translate-y-1 transition-all rounded-xl p-5 flex flex-col justify-between"
-          >
-            <div>
-              <h4 className="text-xl font-bold text-indigo-700 flex items-center gap-2">
-                📁 {category.name}
-              </h4>
-              <p className="text-gray-600 text-sm mt-2">{category.description}</p>
+        {showForm && (
+            <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex justify-center items-center z-50 animate-fade-in">
+                <div className="bg-white shadow-2xl p-6 rounded-lg w-full max-w-md relative">
+                    <button
+                        onClick={handleCancel}
+                        className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
+                    >
+                        <XCircle size={24} />
+                    </button>
+                    <form onSubmit={handleSubmit}>
+                        <h3 className="text-xl font-bold mb-6 text-gray-800">
+                            {form.id ? "Chỉnh sửa Danh mục" : "Thêm Danh mục mới"}
+                        </h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block font-semibold text-gray-700 mb-1">
+                                    Tên danh mục
+                                </label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={form.name}
+                                    onChange={handleInputChange}
+                                    className="w-full border border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block font-semibold text-gray-700 mb-1">
+                                    Mô tả
+                                </label>
+                                <textarea
+                                    name="description"
+                                    value={form.description}
+                                    onChange={handleInputChange}
+                                    rows={3}
+                                    className="w-full border border-gray-300 px-4 py-2 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                            </div>
+                        </div>
+                        <div className="mt-6 flex gap-4 justify-end">
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                className="px-5 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                type="submit"
+                                className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition"
+                            >
+                                {form.id ? "Lưu thay đổi" : "Thêm mới"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
+        )}
 
-            <div className="mt-4 flex justify-end gap-3">
-              <button
-                onClick={() => handleEdit(category)}
-                className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium"
-              >
-                <Pencil size={18} />
-                <span>Sửa</span>
-              </button>
-              <button
-                onClick={() => handleDelete(category.id)}
-                className="text-red-600 hover:text-red-800 flex items-center gap-1 font-medium"
-              >
-                <Trash2 size={18} />
-                <span>Xóa</span>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+        {loading ? <LoadingSpinner /> : (
+            categories.length > 0 ? (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {categories.map((category) => (
+                        <div
+                            key={category.id}
+                            className="bg-white shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all rounded-lg flex flex-col group"
+                        >
+                            <div className="p-5 flex-grow">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                                        <Folder size={24} />
+                                    </div>
+                                    <h4 className="text-lg font-bold text-gray-800 group-hover:text-indigo-600 transition">
+                                        {category.name}
+                                    </h4>
+                                </div>
+                                <p className="text-gray-600 text-sm mt-3 min-h-[40px]">{category.description}</p>
+                            </div>
+                            <div className="mt-2 flex justify-end gap-2 border-t bg-gray-50 p-3 rounded-b-lg">
+                                <button
+                                    onClick={() => handleEdit(category)}
+                                    className="text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-blue-100 transition"
+                                    title="Sửa"
+                                >
+                                    <Pencil size={16} />
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(category.id)}
+                                    className="text-gray-500 hover:text-red-600 p-2 rounded-full hover:bg-red-100 transition"
+                                    title="Xóa"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-16 bg-white rounded-lg shadow-md">
+                    <h3 className="text-xl font-semibold text-gray-700">Chưa có danh mục nào</h3>
+                    <p className="text-gray-500 mt-2">Hãy bắt đầu bằng cách thêm một danh mục mới.</p>
+                </div>
+            )
+        )}
     </div>
   );
 };

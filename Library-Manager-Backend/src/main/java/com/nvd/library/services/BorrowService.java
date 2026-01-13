@@ -16,5 +16,6 @@ public interface BorrowService {
     Borrow addBorrow(Borrow borrow);
     Borrow updateBorrow(Borrow borrow);
     void deleteBorrowById(Integer borrowId);
-    Page<BorrowDTO> searchBorrows(String keyword, Pageable pageable);
+    Page<BorrowDTO> searchBorrows(String keyword,String status, Pageable pageable);
+    int countActiveBorrowsByUser(Integer userId);
 }

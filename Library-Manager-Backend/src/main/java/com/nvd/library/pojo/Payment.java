@@ -1,14 +1,18 @@
 package com.nvd.library.pojo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -23,13 +27,16 @@ public class Payment {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fine_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Fine fine;
 
-    @ColumnDefault("'Fine'")
     @Lob
     @Column(name = "payment_type")
     private String paymentType;
@@ -38,16 +45,13 @@ public class Payment {
     @Column(name = "amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
-    @ColumnDefault("'Cash'")
     @Lob
     @Column(name = "payment_method")
     private String paymentMethod;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "payment_date")
-    private Instant paymentDate;
+    private LocalDate paymentDate;
 
-    @ColumnDefault("'Successful'")
     @Lob
     @Column(name = "status")
     private String status;

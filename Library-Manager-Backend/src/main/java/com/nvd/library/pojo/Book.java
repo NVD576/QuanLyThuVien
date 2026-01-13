@@ -22,11 +22,6 @@ public class Book {
 
     @Size(max = 255)
     @NotNull
-    @Column(name = "code", nullable = false)
-    private String code;
-
-    @Size(max = 255)
-    @NotNull
     @Column(name = "title", nullable = false)
     private String title;
 

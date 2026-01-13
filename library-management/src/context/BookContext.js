@@ -23,7 +23,7 @@ export const BookProvider = ({ children }) => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [sortConfig, setSortConfig] = useState({
     field: "id",
-    direction: "asc",
+    direction: "desc",
   });
 
   const fetchBooks = useCallback(
@@ -69,13 +69,13 @@ export const BookProvider = ({ children }) => {
     [currentPage, pageSize, sortConfig]
   );
 
-  // Gọi fetchBooks khi trang hoặc sắp xếp thay đổi
+ 
   useEffect(() => {
     if (user) fetchBooks({ search: searchTerm, cate: selectedCategory });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentPage, sortConfig, fetchBooks]);
 
-  // Tìm kiếm chỉ chạy khi gọi handleSearch
+  
   const handleSearch = ({ search, cate }) => {
     setCurrentPage(0);
     setSearchTerm(search);
@@ -100,7 +100,7 @@ export const BookProvider = ({ children }) => {
   const updateBook = async (updatedData) => {
     try {
       setLoading(true);
-      const response= await authApis().patch(
+      const response = await authApis().patch(
         endpoints["book-update"],
         updatedData
       );
@@ -115,6 +115,10 @@ export const BookProvider = ({ children }) => {
   };
 
   const deleteBook = async (id) => {
+    const confirmDelete = window.confirm(
+      "Bạn có chắc chắn muốn xóa sách này không?\nHành động này sẽ xoá cả các bản ghi liên quan như phiếu mượn, phiếu phạt (nếu có)."
+    );
+    if (!confirmDelete) return;
     try {
       setLoading(true);
       await authApis().delete(endpoints["book-delete"](id));

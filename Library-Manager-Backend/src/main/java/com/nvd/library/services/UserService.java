@@ -15,4 +15,6 @@ public interface UserService extends UserDetailsService {
     public void deleteUser(User user);
     public boolean authenticate(String username, String password);
     List<User> findAllReaderUsers();
+    boolean existsByUsername(String username);
+    boolean existsByEmail(String email);
 }

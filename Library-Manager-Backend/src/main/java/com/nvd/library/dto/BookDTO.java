@@ -11,7 +11,6 @@ import java.util.List;
 @Setter
 public class BookDTO {
     private Integer id;
-    private String code;
     private String title;
     private String author;
     private Integer totalCopies;
@@ -22,6 +21,6 @@ public class BookDTO {
     private BigDecimal price;
     private String image;
     private Boolean isActive;
-    private List<Integer> categoryIds; // ID của các thể loại
-    private MultipartFile file; // File ảnh được upload
+    private List<Integer> categoryIds;
+    private MultipartFile file;
 }

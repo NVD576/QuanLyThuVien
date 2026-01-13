@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -85,13 +86,7 @@ public class BookServiceImpl implements BookService {
     @Transactional
     public Book addBook(BookDTO bookDTO) {
         Book book = new Book();
-        // Nếu không truyền code, tự động generate code bắt đầu bằng "B"
-        if (bookDTO.getCode() == null || bookDTO.getCode().trim().isEmpty()) {
-            String generatedCode = generateBookCode();
-            book.setCode(generatedCode);
-        } else {
-            book.setCode(bookDTO.getCode());
-        }
+
         // Set thông tin sách
         book.setTitle(bookDTO.getTitle());
         book.setAuthor(bookDTO.getAuthor());
@@ -100,7 +95,9 @@ public class BookServiceImpl implements BookService {
         book.setPublisher(bookDTO.getPublisher());
         book.setPublicationYear(bookDTO.getPublicationYear());
         book.setDescription(bookDTO.getDescription());
-        book.setPrice(bookDTO.getPrice());
+        book.setImage(bookDTO.getImage());
+        BigDecimal price = bookDTO.getPrice();
+        book.setPrice(price);
         book.setIsActive(bookDTO.getIsActive());
 
         // Set ảnh (giả sử bạn lưu ảnh ra thư mục và lưu đường dẫn vào DB)
@@ -111,13 +108,15 @@ public class BookServiceImpl implements BookService {
             } catch (IOException ex) {
                 Logger.getLogger(UserServiceImpl.class.getName()).log(Level.SEVERE, null, ex);
             }
+        }else if (bookDTO.getImage() != null && !bookDTO.getImage().isEmpty()) {
+            book.setImage(bookDTO.getImage());
         }
 
         // Set thể loại
         if (bookDTO.getCategoryIds() != null && !bookDTO.getCategoryIds().isEmpty()) {
             Set<Category> categories = new HashSet<>(categoryRepository.findAllById(bookDTO.getCategoryIds()));
             book.setCategories(categories);
-}
+        }
 
         return bookRepository.save(book);
     }
@@ -130,14 +129,13 @@ public class BookServiceImpl implements BookService {
             throw new IllegalArgumentException("Không tìm thấy sách với ID: " + bookDTO.getId());
         }
         // Set thông tin sách
-        book.setCode(bookDTO.getCode());
         book.setTitle(bookDTO.getTitle());
         book.setAuthor(bookDTO.getAuthor());
         book.setTotalCopies(bookDTO.getTotalCopies());
+        book.setAvailableCopies(bookDTO.getAvailableCopies());
         book.setPublisher(bookDTO.getPublisher());
         book.setPublicationYear(bookDTO.getPublicationYear());
         book.setDescription(bookDTO.getDescription());
-        book.setPrice(bookDTO.getPrice());
         book.setIsActive(bookDTO.getIsActive());
 
         // Set ảnh (giả sử bạn lưu ảnh ra thư mục và lưu đường dẫn vào DB)

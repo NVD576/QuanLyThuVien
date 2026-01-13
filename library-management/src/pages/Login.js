@@ -1,99 +1,115 @@
-import React, { useContext , useState } from "react";
+import React, { useContext, useState } from "react";
 import Cookies from "js-cookie";
 import Apis, { authApis, endpoints } from "../configs/API";
 import { FaUser, FaLock } from "react-icons/fa";
-import LoadingSpinner from "../components/layouts/LoadingSpinner";
 import { MyDispatcherContext } from "../configs/MyContexts";
-import { useNavigate } from "react-router-dom";
+import { useNavigate} from "react-router-dom";
 
 const Login = () => {
   const [form, setForm] = useState({ username: "", password: "" });
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false); // Thêm state loading
-  const dispatch = useContext(MyDispatcherContext); // Lấy dispatch từ context
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const dispatch = useContext(MyDispatcherContext);
   const navigate = useNavigate();
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true); // Bắt đầu loading
+    setLoading(true);
+    setError("");
     try {
-      console.log("Đang đăng nhập với thông tin:", form);
       const res = await Apis.post(endpoints["login"], form);
       const token = res.data.token;
+
       if (token) {
-        Cookies.set("token", token);
-        let res = await authApis().get(endpoints["current-user"]);
+        Cookies.set("token", token, { expires: 7, secure: true, sameSite: 'strict' });
+        
+        const currentUserRes = await authApis().get(endpoints["current-user"]);
         dispatch({
           type: "login",
-          payload: res.data,
+          payload: currentUserRes.data,
         });
-        console.log(res.data)
-        setMessage(" Đăng nhập thành công!");
+        
         navigate("/");
       } else {
-        setMessage(" Đăng nhập thất bại: không có token");
+        setError("Đăng nhập thất bại. Vui lòng thử lại.");
       }
     } catch (err) {
-      setMessage("Tài khoản hoặc mật khẩu không đúng!", err);
+      setError("Tên đăng nhập hoặc mật khẩu không chính xác.");
       Cookies.remove("token");
+    } finally {
+      setLoading(false);
     }
-    finally {
-      setLoading(false); // Kết thúc loading
-    }
-    
   };
 
   return (
-    <div className="h-[85vh] flex items-center justify-center bg-gradient-to-r from-blue-100 to-blue-300">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
-        <h2 className="text-3xl font-bold text-center text-blue-700 mb-6">
-          Đăng nhập
-        </h2>
+    <div className="flex items-center justify-center h-full bg-[#FDF6E3]">
+      <div className="w-full max-w-md p-8 space-y-6 bg-[#FFFBF2] rounded-2xl shadow-xl">
+        <div className="text-center">
+          <h1 className="text-4xl font-serif font-bold text-[#5C5346]">
+            Chào mừng trở lại 
+          </h1>
+          <p className="mt-2 text-[#8E806A]">
+            Đăng nhập để tiếp tục khám phá thư viện
+          </p>
+        </div>
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50">
-            <FaUser className="text-gray-400 mr-2" />
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="relative">
+            <FaUser className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E806A]" />
             <input
               type="text"
               name="username"
               placeholder="Tên đăng nhập"
               value={form.username}
               onChange={handleChange}
-              className="w-full outline-none bg-transparent"
+              className="w-full py-3 pl-12 pr-4 text-[#5C5346] bg-white border border-[#EAE0C8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005A7A]"
               required
               disabled={loading}
             />
           </div>
-          <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50">
-            <FaLock className="text-gray-400 mr-2" />
+          <div className="relative">
+            <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E806A]" />
             <input
               type="password"
               name="password"
               placeholder="Mật khẩu"
               value={form.password}
               onChange={handleChange}
-              className="w-full outline-none bg-transparent"
+              className="w-full py-3 pl-12 pr-4 text-[#5C5346] bg-white border border-[#EAE0C8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005A7A]"
               required
               disabled={loading}
             />
           </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300"
-            disabled={loading}
-          >
-            Đăng nhập
-          </button>
-          {loading && <LoadingSpinner />} {/* Hiển thị spinner khi loading */}
+          
+          {error && (
+            <p className="text-center text-sm text-red-600 bg-red-100 p-2 rounded-lg">
+              {error}
+            </p>
+          )}
+
+          <div>
+            <button
+              type="submit"
+              className="w-full flex justify-center items-center py-3 px-4 bg-[#005A7A] text-white font-bold rounded-xl hover:bg-[#004a63] transition duration-300 disabled:bg-[#a3b1b6]"
+              disabled={loading}
+            >
+              {loading ? (
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                "Đăng nhập"
+              )}
+            </button>
+          </div>
         </form>
-        {message && (
-          <p className="mt-4 text-center text-sm text-green-700 font-medium">
-            {message}
-          </p>
-        )}
+        
+
       </div>
     </div>
   );

@@ -1,7 +1,20 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useContext } from "react";
+import {  toast } from "react-hot-toast";
+import {
+  FiPlus,
+  FiSearch,
+  FiEdit,
+  FiTrash2,
+  FiCheckCircle,
+  FiXCircle,
+} from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import moment from "moment";
+
 import useMembers from "../hooks/useMembers";
 import LoadingSpinner from "../components/layouts/LoadingSpinner";
-import { FaSearch, FaTimes } from "react-icons/fa";
+import Pagination from "../components/layouts/Pagination";
+import { MyUserContext } from "../configs/MyContexts";
 
 const initialForm = {
   id: null,
@@ -14,16 +27,48 @@ const initialForm = {
   isActive: true,
   username: "",
   password: "",
+  membershipLevel: "Basic",
 };
 
 const Members = () => {
-  const { members, loading, fetchMembers, addMember, updateMember, deleteMember } =
-    useMembers();
+  const {
+    members,
+    loading,
+    page,
+    setPage,
+    size,
+    setSize,
+    keyword,
+    setKeyword,
+    totalPages,
+    fetchMembers,
+    addMember,
+    updateMember,
+    deleteMember,
+  } = useMembers();
+
   const [form, setForm] = useState(initialForm);
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // all, active, inactive
+  const navigate = useNavigate();
+
+  const currentUser = useContext(MyUserContext);
+  const isAdmin = currentUser && currentUser.role === "Admin";
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers, page, size]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setKeyword(searchTerm);
+      setPage(0);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, setKeyword, setPage]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -40,102 +85,145 @@ const Members = () => {
       phone: user.user.phone,
       address: user.user.address,
       isActive: user.user.isActive,
+      membershipLevel: user.membershipLevel,
+      username: user.user.username,
+      password: "",
     });
     setIsEdit(true);
-    setShowForm(true);
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Bạn có chắc muốn xóa người dùng này không?")) {
-      await deleteMember(id);
-      fetchMembers();
+      try {
+        await deleteMember(id);
+        fetchMembers();
+        toast.success("Xóa thành viên thành công!");
+      } catch (error) {
+        toast.error("Xóa thành viên thất bại!");
+      }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
-    formData.append("id", form.id || "");
+    if (isEdit) formData.append("id", form.id);
     formData.append("firstName", form.firstName);
     formData.append("lastName", form.lastName);
     formData.append("email", form.email);
     formData.append("phone", form.phone);
     formData.append("address", form.address);
-    formData.append("isActive", form.isActive ? "true" : "false");
+    formData.append("isActive", form.isActive);
+    formData.append("membershipLevel", form.membershipLevel);
     if (form.avatar instanceof File) {
       formData.append("file", form.avatar);
     }
     if (!isEdit) {
       formData.append("username", form.username);
       formData.append("password", form.password);
+    } else if (isAdmin) {
+      if (form.username) {
+        formData.append("username", form.username);
+      }
+      if (form.password) {
+        formData.append("password", form.password);
+      }
     }
 
     try {
       if (form.id) {
         await updateMember(formData);
+        toast.success("Cập nhật thành viên thành công!");
       } else {
         await addMember(formData);
+        toast.success("Thêm thành viên thành công!");
       }
-      setForm(initialForm);
-      setShowForm(false);
       fetchMembers();
+      setForm(initialForm);
+      setShowModal(false);
     } catch (error) {
-      console.error("Lỗi khi gửi dữ liệu:", error);
+      console.error("Lỗi khi gửi dữ liệu:", error.response.data);
+      toast.error( error.response.data);
     }
   };
 
   const handleCancel = () => {
     setForm(initialForm);
-    setShowForm(false);
+    setShowModal(false);
   };
 
   const clearSearch = () => {
     setSearchTerm("");
   };
 
-  // Lọc và tìm kiếm members
-  const filteredMembers = useMemo(() => {
-    return members.filter((member) => {
-      const user = member.user;
-      const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
-      const email = user.email.toLowerCase();
-      const phone = user.phone || "";
-      const address = user.address || "";
-      
-      // Tìm kiếm theo từ khóa
-      const matchesSearch = searchTerm === "" || 
-        fullName.includes(searchTerm.toLowerCase()) ||
-        email.includes(searchTerm.toLowerCase()) ||
-        phone.includes(searchTerm.toLowerCase()) ||
-        address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.id.toString().includes(searchTerm);
+  const filteredMembers = members.filter((member) => {
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && member.user.isActive) ||
+      (statusFilter === "inactive" && !member.user.isActive);
 
-      // Lọc theo trạng thái
-      const matchesStatus = statusFilter === "all" ||
-        (statusFilter === "active" && user.isActive) ||
-        (statusFilter === "inactive" && !user.isActive);
+    return matchesStatus;
+  });
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [members, searchTerm, statusFilter]);
+  const StatusBadge = ({ isActive }) => {
+    return isActive ? (
+      <span className="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 flex items-center gap-1">
+        <FiCheckCircle className="inline" /> Hoạt động
+      </span>
+    ) : (
+      <span className="px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 flex items-center gap-1">
+        <FiXCircle className="inline" /> Tạm ngưng
+      </span>
+    );
+  };
+
+  const MembershipBadge = ({ level }) => {
+    const styles = {
+      Basic: "bg-blue-100 text-blue-800",
+      Premium: "bg-purple-100 text-purple-800",
+      Gold: "bg-yellow-100 text-yellow-800",
+      Platinum: "bg-gray-100 text-gray-800",
+    };
+
+    return (
+      <span
+        className={`px-3 py-1 text-xs font-semibold rounded-full ${
+          styles[level] || styles.Basic
+        }`}
+      >
+        {level}
+      </span>
+    );
+  };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold mb-4 text-indigo-700">
-        Quản lý Người dùng
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
+      <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">
+        Quản lý Bạn đọc
       </h2>
 
-      {/* Thanh tìm kiếm và bộ lọc */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
+      <div className="mb-6 bg-white p-4 rounded-lg shadow">
         <div className="flex flex-col md:flex-row gap-4 items-center">
-          {/* Thanh tìm kiếm */}
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="h-5 w-5 text-gray-400" />
-            </div>
+          <div>
+            <span className="text-sm text-gray-600">Số mục mỗi trang:</span>
+            <input
+              type="number"
+              list="page-size-options"
+              value={size}
+              min={1}
+              onChange={(e) => {
+                setSize(Number(e.target.value));
+                setPage(0);
+              }}
+              className="border border-gray-300 rounded px-2 py-1 w-20"
+            />
+          </div>
+          <div className="relative flex-grow">
+            <FiSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Tìm kiếm theo tên, email, số điện thoại, địa chỉ hoặc ID..."
+              placeholder="Tìm theo tên, email, số điện thoại, địa chỉ hoặc ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -145,261 +233,363 @@ const Members = () => {
                 onClick={clearSearch}
                 className="absolute inset-y-0 right-0 pr-3 flex items-center"
               >
-                <FaTimes className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                <FiXCircle className="h-4 w-4 text-gray-400 hover:text-gray-600" />
               </button>
             )}
           </div>
 
-          {/* Bộ lọc trạng thái */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Trạng thái:</label>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
-              <option value="all">Tất cả</option>
+              <option value="all">Tất cả trạng thái</option>
               <option value="active">Hoạt động</option>
               <option value="inactive">Không hoạt động</option>
             </select>
-          </div>
 
-          {/* Button thêm user */}
-          <button
-            onClick={() => {
-              setForm(initialForm);
-              setIsEdit(false);
-              setShowForm(true);
-            }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 whitespace-nowrap"
-          >
-            ➕ Thêm Người dùng
-          </button>
+            <button
+              onClick={() => {
+                setForm(initialForm);
+                setIsEdit(false);
+                setShowModal(true);
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 w-full md:w-auto"
+            >
+              <FiPlus /> Thêm Bạn đọc
+            </button>
+          </div>
         </div>
 
-        {/* Thống kê */}
         <div className="mt-3 text-sm text-gray-600">
-          Hiển thị {filteredMembers.length} / {members.length} người dùng
-          {searchTerm && ` cho "${searchTerm}"`}
+          {keyword && (
+            <span className="ml-2">
+              cho từ khóa "<strong>{keyword}</strong>"
+            </span>
+          )}
         </div>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white w-full max-w-2xl p-6 rounded shadow-lg relative">
-            <button
-              onClick={handleCancel}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-            >
-              ✖
-            </button>
-            <h3 className="text-xl font-semibold mb-4 text-indigo-700">
-              {isEdit ? "Cập nhật người dùng" : "Thêm người dùng"}
-            </h3>
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-lg shadow-lg overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-indigo-700">
+                  {isEdit ? "Cập nhật bạn đọc" : "Thêm bạn đọc mới"}
+                </h3>
+                <button
+                  onClick={handleCancel}
+                  className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="grid gap-4 sm:grid-cols-2"
-            >
-              <img
-                src={
-                  form.avatar instanceof File
-                    ? URL.createObjectURL(form.avatar)
-                    : form.avatar
-                }
-                alt="Avatar Preview"
-                className="w-20 h-20 rounded-full"
-              />
-              <input
-                type="text"
-                name="firstName"
-                value={form.firstName}
-                onChange={handleInputChange}
-                placeholder="Họ"
-                className="border px-4 py-2 rounded"
-                required
-              />
-              <input
-                type="text"
-                name="lastName"
-                value={form.lastName}
-                onChange={handleInputChange}
-                placeholder="Tên"
-                className="border px-4 py-2 rounded"
-                required
-              />
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleInputChange}
-                placeholder="Email"
-                className="border px-4 py-2 rounded"
-                required
-              />
-              <input
-                type="text"
-                name="phone"
-                value={form.phone}
-                onChange={handleInputChange}
-                placeholder="Số điện thoại"
-                className="border px-4 py-2 rounded"
-              />
-              <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleInputChange}
-                placeholder="Địa chỉ"
-                className="border px-4 py-2 rounded"
-              />
-              {!isEdit && (
-                <>
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <div className="flex items-center gap-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex-shrink-0">
+                  <img
+                    src={
+                      form.avatar instanceof File
+                        ? URL.createObjectURL(form.avatar)
+                        : form.avatar || "/default-avatar.png"
+                    }
+                    alt="Avatar Preview"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                    Thông tin cá nhân
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Cập nhật avatar và thông tin cơ bản của thành viên
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Họ *
+                  </label>
                   <input
                     type="text"
-                    name="username"
-                    value={form.username}
+                    name="firstName"
+                    value={form.firstName}
                     onChange={handleInputChange}
-                    placeholder="Tên đăng nhập"
-                    className="border px-4 py-2 rounded"
+                    placeholder="Nhập họ"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tên *
+                  </label>
                   <input
-                    type="password"
-                    name="password"
-                    value={form.password}
+                    type="text"
+                    name="lastName"
+                    value={form.lastName}
                     onChange={handleInputChange}
-                    placeholder="Mật khẩu"
-                    className="border px-4 py-2 rounded"
+                    placeholder="Nhập tên"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleInputChange}
+                    placeholder="example@email.com"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleInputChange}
+                    placeholder="0123456789"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Địa chỉ
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={form.address}
+                    onChange={handleInputChange}
+                    placeholder="Nhập địa chỉ đầy đủ"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Cấp độ thành viên
+                  </label>
+                  <select
+                    name="membershipLevel"
+                    value={form.membershipLevel}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  >
+                    <option value="Basic">Basic</option>
+                    <option value="Premium">Premium</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Trạng thái
+                  </label>
+                  <label className="flex items-center gap-3 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      checked={form.isActive}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Hoạt động
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {(!isEdit || (isEdit && currentUser?.role === "Admin")) && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      name="username"
+                      value={form.username || ""}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-lg px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={form.password || ""}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-lg px-3 py-2"
+                    />
+                  </div>
                 </>
               )}
-              <input
-                type="file"
-                name="avatar"
-                accept="image/*"
-                onChange={(e) =>
-                  setForm({ ...form, avatar: e.target.files[0] })
-                }
-                className="border px-4 py-2 rounded"
-              />
 
-              <label className="flex items-center gap-2 col-span-2">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cập nhật Avatar
+                </label>
                 <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={form.isActive}
-                  onChange={handleInputChange}
+                  type="file"
+                  name="avatar"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setForm({ ...form, avatar: e.target.files[0] })
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                 />
-                Hoạt động
-              </label>
-              <div className="col-span-2 flex justify-end gap-3">
-                <button
-                  type="submit"
-                  className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-                >
-                  {form.id ? "Cập nhật" : "Thêm"}
-                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  Chọn file ảnh (JPG, PNG, GIF) - Kích thước tối đa 5MB
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500"
+                  className="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500 transition-colors"
                 >
                   Hủy
                 </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed"
+                >
+                  {isEdit ? "Cập nhật" : "Thêm"}
+                </button>
               </div>
             </form>
-            {loading && <LoadingSpinner />}
+            {loading && (
+              <div className="fixed inset-0 bg-gray-900 bg-opacity-40 flex items-center justify-center z-[9999]">
+                <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center gap-3">
+                  <LoadingSpinner size={32} />
+                  <span className="text-gray-700 font-medium">
+                    Đang xử lý...
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Bảng hiển thị */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        {filteredMembers.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {searchTerm || statusFilter !== "all" 
-              ? "Không tìm thấy người dùng nào phù hợp với điều kiện tìm kiếm"
-              : "Chưa có người dùng nào"
-            }
-          </div>
-        ) : (
-          <table className="w-full border border-gray-200">
-            <thead className="bg-gray-100">
+      <div className="bg-white shadow-lg rounded-lg overflow-x-auto mb-4">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 text-left text-gray-600 uppercase">
+            <tr>
+              <th className="py-3 px-4">ID</th>
+              <th className="py-3 px-4">Avatar</th>
+              <th className="py-3 px-4">Họ tên</th>
+              <th className="py-3 px-4">Email</th>
+              <th className="py-3 px-4">Điện thoại</th>
+              <th className="py-3 px-4">Ngày tạo</th>
+              <th className="py-3 px-4">Membership</th>
+              <th className="py-3 px-4 text-center">Trạng thái</th>
+              <th className="py-3 px-4 text-center">Hành động</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
               <tr>
-                <th className="py-3 px-4 border-b text-left">ID</th>
-                <th className="py-3 px-4 border-b text-left">Avatar</th>
-                <th className="py-3 px-4 border-b text-left">Họ tên</th>
-                <th className="py-3 px-4 border-b text-left">Email</th>
-                <th className="py-3 px-4 border-b text-left">Điện thoại</th>
-                <th className="py-3 px-4 border-b text-left">Địa chỉ</th>
-                <th className="py-3 px-4 border-b text-left">Ngày tạo</th>
-                <th className="py-3 px-4 border-b text-left">Trạng thái</th>
-                <th className="py-3 px-4 border-b text-center">Hành động</th>
+                <td colSpan="9" className="text-center py-10">
+                  <LoadingSpinner />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredMembers.map((u) => (
+            ) : filteredMembers.length === 0 ? (
+              <tr>
+                <td colSpan="9" className="text-center py-10 text-gray-500">
+                  {searchTerm
+                    ? "Không tìm thấy kết quả phù hợp."
+                    : "Không có dữ liệu."}
+                </td>
+              </tr>
+            ) : (
+              filteredMembers.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{u.id}</td>
-                  <td className="py-2 px-4 border-b">
+                  <td className="py-3 px-4 font-medium">{u.id}</td>
+                  <td className="py-3 px-4">
                     <img
-                      src={u.user.avatar || "default-avatar.png"}
+                      src={u.user.avatar}
                       alt="avatar"
-                      className="w-10 h-10 rounded-full"
+                      className="w-10 h-10 rounded-full object-cover"
                     />
                   </td>
-                  <td className="py-2 px-4 border-b">
-                    {u.user.firstName} {u.user.lastName}
+                  <td
+                    className="py-3 px-4 text-blue-600 hover:underline cursor-pointer"
+                    onClick={() => navigate(`/user/${u.id}`)}
+                  >
+                    {`${u.user.firstName} ${u.user.lastName}`}
                   </td>
-                  <td className="py-2 px-4 border-b">{u.user.email}</td>
-                  <td className="py-2 px-4 border-b">{u.user.phone}</td>
-                  <td className="py-2 px-4 border-b">{u.user.address}</td>
-                  <td className="py-2 px-4 border-b">
-                    {new Date(u.user.createdAt).toLocaleDateString()}
+                  <td className="py-3 px-4">{u.user.email}</td>
+                  <td className="py-3 px-4">{u.user.phone || "—"}</td>
+                  <td className="py-3 px-4">
+                    {moment(u.user.createdAt).format("DD/MM/YYYY")}
                   </td>
-                  <td className="py-2 px-4 border-b">
-                    <div className="flex justify-center">
-                      {u.user.isActive ? (
-                        <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
+                  <td className="py-3 px-4">
+                    <MembershipBadge level={u.membershipLevel} />
                   </td>
-                  <td className="py-2 px-4 border-b text-center">
-                    <div className="flex justify-center gap-2">
+                  <td className="py-3 px-4 text-center">
+                    <StatusBadge isActive={u.user.isActive} />
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex justify-center items-center gap-3">
                       <button
                         onClick={() => handleEdit(u)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Sửa"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Sửa
+                        <FiEdit />
                       </button>
                       <button
                         onClick={() => handleDelete(u.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                        className="text-red-600 hover:text-red-800"
+                        title="Xóa"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Xóa
+                        <FiTrash2 />
                       </button>
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="bg-white p-4 rounded-lg shadow flex flex-col sm:flex-row items-center justify-between">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+
+          <div className="text-sm text-gray-600 mt-4 sm:mt-0">
+            Trang {page + 1} / {totalPages || 1}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

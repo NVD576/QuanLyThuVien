@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { authApis, endpoints } from "../configs/API";
-import LoadingSpinner from "./layouts/LoadingSpinner";
+import LoadingSpinner from "../components/layouts/LoadingSpinner";
 
 const AddBookForm = ({ book, onSubmit, onCancel }) => {
   const [id, setId] = useState("");
@@ -8,10 +8,11 @@ const AddBookForm = ({ book, onSubmit, onCancel }) => {
   const [author, setAuthor] = useState("");
   const [publisher, setPublisher] = useState("");
   const [publicationYear, setPublicationYear] = useState("");
-  const [totalCopies, setTotalCopies] = useState(1);
+  const [totalCopies, setTotalCopies] = useState(0);
+  const [availableCopies, setAvailableCopies] = useState(0);
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
   const [categories, setCategories] = useState([]);
+  const [isActive, setIsActive] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -35,9 +36,10 @@ const AddBookForm = ({ book, onSubmit, onCancel }) => {
       setAuthor(book.author || "");
       setPublisher(book.publisher || "");
       setPublicationYear(book.publicationYear || "");
-      setTotalCopies(book.totalCopies || 1);
+      setTotalCopies(book.totalCopies || 0);
+      setAvailableCopies(book.availableCopies || 0);
       setDescription(book.description || "");
-      setPrice(book.price || "");
+      setIsActive(book.isActive ?? true);
       setSelectedCategories(book.categories?.map((c) => c.id) || []);
       setImage(null);
     } else {
@@ -51,9 +53,9 @@ const AddBookForm = ({ book, onSubmit, onCancel }) => {
     setAuthor("");
     setPublisher("");
     setPublicationYear("");
-    setTotalCopies(1);
+    setTotalCopies(0);
     setDescription("");
-    setPrice("");
+    setIsActive(true);
     setSelectedCategories([]);
     setImage(null);
   };
@@ -62,14 +64,14 @@ const AddBookForm = ({ book, onSubmit, onCancel }) => {
     e.preventDefault();
     const form = new FormData();
     if (id) form.append("id", id);
-    form.append("code", "")
     form.append("title", title);
     form.append("author", author);
     form.append("publisher", publisher);
     form.append("publicationYear", publicationYear);
     form.append("totalCopies", totalCopies);
+    form.append("availableCopies", availableCopies); 
     form.append("description", description);
-    form.append("price", price);
+    form.append("isActive", isActive);
     if (image) form.append("file", image);
     selectedCategories.forEach((c) => form.append("categoryIds", c));
     for (const [key, value] of form.entries()) {
@@ -120,10 +122,24 @@ const AddBookForm = ({ book, onSubmit, onCancel }) => {
               📁 Chọn ảnh bìa
             </label>
           </div>
+          <div className="form-control mt-4">
+            <label className="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="checkbox checkbox-primary"
+              />
+              <span className="label-text font-semibold">
+                Hoạt động (Active)
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="md:col-span-2 space-y-4">
           <div className="grid grid-cols-2 gap-4">
+
             <div className="form-control">
               <label className="label font-semibold">Tiêu đề</label>
               <input
@@ -173,21 +189,21 @@ const AddBookForm = ({ book, onSubmit, onCancel }) => {
                 value={totalCopies}
                 onChange={(e) => setTotalCopies(e.target.value)}
                 className="input input-bordered w-full"
-                min={1}
+                min={0}
               />
             </div>
-
             <div className="form-control">
-              <label className="label font-semibold">Giá</label>
+              <label className="label font-semibold">Số lượng còn lại</label>
               <input
                 type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                value={availableCopies}
+                onChange={(e) => setAvailableCopies(e.target.value)}
                 className="input input-bordered w-full"
-                step="0.01"
+                min={0}
               />
             </div>
           </div>
+         
 
           <div className="form-control">
             <label className="label font-semibold">Mô tả</label>

@@ -7,6 +7,7 @@ import com.nvd.library.pojo.User;
 import com.nvd.library.services.AdminService;
 import com.nvd.library.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -37,7 +38,17 @@ public class ApiAdminController {
 
 
     @PostMapping("/admins/add")
-    public ResponseEntity<Admin> addAdmin(@ModelAttribute UserDTO userDTO){
+    public ResponseEntity<?> addAdmin(@ModelAttribute UserDTO userDTO){
+        if (userService.existsByUsername(userDTO.getUsername())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Username đã tồn tại");
+        }
+
+        // Kiểm tra email
+        if (userService.existsByEmail(userDTO.getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Email đã tồn tại");
+        }
         User user = new User();
         user.setUsername(userDTO.getUsername());
         user.setPassword(userDTO.getPassword());
@@ -64,16 +75,45 @@ public class ApiAdminController {
     }
 
     @PatchMapping("/admins/update")
-    public ResponseEntity<Admin> updateAdmin(@ModelAttribute Admin admin) {
-        User u = this.userService.addOrUpdateUser(admin.getUser());
-        admin.setUser(u);
+    public ResponseEntity<?> updateAdmin(@ModelAttribute Admin admin) {
+
+        User user = this.userService.getUserById(admin.getUser().getId());
+
+
+        if (!user.getUsername().equals(admin.getUser().getUsername()) && userService.existsByUsername(admin.getUser().getUsername())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Username đã tồn tại");
+        }
+
+        if (!user.getEmail().equals(admin.getUser().getEmail()) && userService.existsByEmail(admin.getUser().getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Email đã tồn tại");
+        }
+        if(admin.getUser().getUsername()!=null){
+            user.setUsername(admin.getUser().getUsername());
+        }
+        user.setEmail(admin.getUser().getEmail());
+        user.setFirstName(admin.getUser().getFirstName());
+        user.setLastName(admin.getUser().getLastName());
+        user.setPhone(admin.getUser().getPhone());
+        user.setAddress(admin.getUser().getAddress());
+        if (admin.getUser().getFile() != null && !admin.getUser().getFile().isEmpty()) {
+            user.setFile(admin.getUser().getFile());
+        }
+        this.userService.addOrUpdateUser(user);
+        admin.setUser(user);
         return ResponseEntity.ok( adminService.updateAdmin(admin));
     }
 
     @DeleteMapping("/admins/{id}/delete")
     public ResponseEntity<String> deleteAdmin(@PathVariable int id){
-        Admin admin = this.adminService.getAdminById(id);
-        this.adminService.deleteAdmin(admin);
+        try{
+            Admin admin = this.adminService.getAdminById(id);
+            adminService.deleteAdmin(admin);
+            this.userService.deleteUser(admin.getUser());
+        }catch (Exception e){
+            e.printStackTrace();
+        }
 
         return ResponseEntity.ok("ok");
     }

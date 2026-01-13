@@ -8,27 +8,14 @@ const useBorrows = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(0);
-  // Lấy tất cả phiếu mượn
-  // const fetchBorrows = async () => {
-  //   setLoading(true);
-  //   try {
-  //     const res = await authApis().get(endpoints["borrows"]);
-  //     console.log("Fetched borrows:", res.data);
-  //     setBorrows(res.data);
-  //   } catch (err) {
-  //     console.error("Lỗi khi lấy danh sách mượn:", err);
-  //     setError(err);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const [status, setStatus] = useState("");
 
   const fetchBorrows = async (keyword, page) => {
     try {
       setLoading(true);
-      const res = await authApis().get(endpoints["borrow-search"], {
-        params: { keyword, page, size: 5 },
-      });
+      const params = { keyword, page, size: 8 };
+      if (status) params.status = status;
+      const res = await authApis().get(endpoints["borrow-search"], { params });
       setBorrows(res.data.content);
       setTotalPages(res.data.totalPages);
     } catch (err) {
@@ -38,12 +25,10 @@ const useBorrows = () => {
     }
   };
   useEffect(() => {
-
-    fetchBorrows(keyword,page);
+    fetchBorrows(keyword, page, status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ page]);
+  }, [page,status]);
 
-  // Lấy mượn theo userId
   const fetchBorrowsByUser = async (userId) => {
     setLoading(true);
     try {
@@ -57,7 +42,6 @@ const useBorrows = () => {
     }
   };
 
-  // Thêm mượn
   const addBorrow = async (data) => {
     try {
       setLoading(true);
@@ -72,7 +56,6 @@ const useBorrows = () => {
     }
   };
 
-  // Cập nhật
   const updateBorrow = async (data) => {
     try {
       setLoading(true);
@@ -87,7 +70,6 @@ const useBorrows = () => {
     }
   };
 
-  // Xoá
   const deleteBorrow = async (id) => {
     try {
       setLoading(true);
@@ -102,12 +84,11 @@ const useBorrows = () => {
     }
   };
 
-
-
   return {
     borrows,
     loading,
     error,
+    status,
     fetchBorrows,
     fetchBorrowsByUser,
     addBorrow,
@@ -117,7 +98,8 @@ const useBorrows = () => {
     keyword,
     page,
     setKeyword,
-    setPage
+    setPage,
+    setStatus,
   };
 };
 

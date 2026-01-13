@@ -1,6 +1,8 @@
 package com.nvd.library.controllers;
 
+import com.nvd.library.dto.ChangePasswordDTO;
 import com.nvd.library.dto.LoginDTO;
+import com.nvd.library.dto.ReaderDTO;
 import com.nvd.library.dto.UserDTO;
 import com.nvd.library.pojo.Reader;
 import com.nvd.library.pojo.User;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -42,17 +45,28 @@ public class ApiUserController {
     }
 
     @PostMapping("/users/add")
-    public ResponseEntity<User> addUser(@ModelAttribute UserDTO userDTO){
+    public ResponseEntity<?> addUser(@ModelAttribute UserDTO userDTO) {
+        if (userService.existsByUsername(userDTO.getUsername())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Username đã tồn tại");
+        }
+
+        // Kiểm tra email
+        if (userService.existsByEmail(userDTO.getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Email đã tồn tại");
+        }
+
         User user = new User();
         user.setUsername(userDTO.getUsername());
-        user.setPassword(userDTO.getPassword());
         user.setEmail(userDTO.getEmail());
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
         user.setPhone(userDTO.getPhone());
         user.setRole(userDTO.getRole());
-        user.setFile(userDTO.getFile());
+        user.setAddress(userDTO.getAddress());
         user.setCreatedAt(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant());
+
         if (userDTO.getFile() != null && !userDTO.getFile().isEmpty()) {
             user.setFile(userDTO.getFile());
         }
@@ -60,30 +74,88 @@ public class ApiUserController {
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
             user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
         }
+
         return ResponseEntity.ok(this.userService.addOrUpdateUser(user));
     }
+
 
     @PatchMapping("/users/{id}/update")
-    public ResponseEntity<User> updateUser(@ModelAttribute UserDTO userDTO, @PathVariable int id){
-        User user = this.userService.getUserById(id);
+    public ResponseEntity<?> updateUser(@ModelAttribute UserDTO userDTO, @PathVariable int id){
+        User user=null;
 
-        user.setEmail(userDTO.getEmail());
-        user.setFirstName(userDTO.getFirstName());
-        user.setLastName(userDTO.getLastName());
-        user.setPhone(userDTO.getPhone());
-        user.setIsActive(userDTO.getIsActive());
-        user.setAddress(userDTO.getAddress());
+        try {
+           user= this.userService.getUserById(userDTO.getId());
 
-        if (userDTO.getFile() != null && !userDTO.getFile().isEmpty()) {
-            user.setFile(userDTO.getFile());
-        }
+                if (!user.getUsername().equals(userDTO.getUsername()) && userService.existsByUsername(userDTO.getUsername())) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body("Username đã tồn tại");
+                }
 
-        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
-            user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
-        }
+                if (!user.getEmail().equals(userDTO.getEmail()) && userService.existsByEmail(userDTO.getEmail())) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body("Email đã tồn tại");
+                }
 
+
+            if(userDTO.getUsername()!=null){
+                user.setUsername(userDTO.getUsername());
+            }
+            if (userDTO.getEmail() != null) {
+                user.setEmail(userDTO.getEmail());
+            }
+            if (userDTO.getFirstName() != null) {
+                user.setFirstName(userDTO.getFirstName());
+            }
+            if (userDTO.getLastName() != null) {
+                user.setLastName(userDTO.getLastName());
+            }
+            if (userDTO.getPhone() != null) {
+                user.setPhone(userDTO.getPhone());
+            }
+            if (userDTO.getAddress() != null) {
+                user.setAddress(userDTO.getAddress());
+            }
+            if (userDTO.getIsActive() != null) {
+                user.setIsActive(userDTO.getIsActive());
+            }
+
+            if (userDTO.getFile() != null && !userDTO.getFile().isEmpty()) {
+                user.setFile(userDTO.getFile());
+            }
+
+            if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+                user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
+            }
+
+
+       }catch (Exception e){
+           throw  new IllegalArgumentException(e);
+       }
         return ResponseEntity.ok(this.userService.addOrUpdateUser(user));
     }
+
+    @PatchMapping("/secure/change-password")
+    public ResponseEntity<?> changeOwnPassword(
+            Principal principal,
+            @RequestBody ChangePasswordDTO changePasswordDTO) {
+
+        User user = this.userService.getUserByUsername(principal.getName());
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy người dùng");
+        }
+
+        // Kiểm tra mật khẩu cũ
+        if (!passwordEncoder.matches(changePasswordDTO.getOldPassword(), user.getPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Mật khẩu cũ không chính xác");
+        }
+
+        // Đổi mật khẩu
+        user.setPassword(passwordEncoder.encode(changePasswordDTO.getNewPassword()));
+        this.userService.addOrUpdateUser(user);
+
+        return ResponseEntity.ok("Đổi mật khẩu thành công");
+    }
+
 
     @DeleteMapping("/users/{id}/delete")
     public ResponseEntity<String> deleteUser(@PathVariable int id){
@@ -111,6 +183,44 @@ public class ApiUserController {
     }
 
 
+    @PostMapping("/register")
+    public ResponseEntity<?> addReader(@ModelAttribute ReaderDTO userDTO){
+        if (userService.existsByUsername(userDTO.getUsername())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Username đã tồn tại");
+        }
+
+
+        if (userService.existsByEmail(userDTO.getEmail())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Email đã tồn tại");
+        }
+
+        User user = new User();
+        user.setUsername(userDTO.getUsername());
+        user.setPassword(userDTO.getPassword());
+        user.setEmail(userDTO.getEmail());
+        user.setFirstName(userDTO.getFirstName());
+        user.setLastName(userDTO.getLastName());
+        user.setPhone(userDTO.getPhone());
+        user.setAddress(userDTO.getAddress());
+        user.setRole("Reader");
+        user.setIsActive(true);
+        user.setCreatedAt(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant());
+        if (userDTO.getFile() != null && !userDTO.getFile().isEmpty()) {
+            user.setFile(userDTO.getFile());
+        }
+
+        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+            user.setPassword(this.passwordEncoder.encode(userDTO.getPassword()));
+        }
+        User u = this.userService.addOrUpdateUser(user);
+        Reader reader = new Reader();
+        reader.setUser(u);
+        reader.setMembershipLevel("Basic");
+        readerService.addReader(reader);
+        return ResponseEntity.ok(reader);
+    }
 
     @RequestMapping("/secure/profile")
     @ResponseBody

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import LoadingSpinner from "../components/layouts/LoadingSpinner";
-import { FaSearch, FaTimes } from "react-icons/fa";
 import useAdmins from "../hooks/useAdmins";
+import LoadingSpinner from "../components/layouts/LoadingSpinner";
+import { FaSearch, FaTimes, FaEdit, FaTrash } from "react-icons/fa";
+import {  toast } from "react-hot-toast";
 
 const initialForm = {
   id: null,
@@ -17,57 +18,69 @@ const initialForm = {
 };
 
 const Admins = () => {
-  const { admins ,loading, fetchAdmins, addAdmin, updateAdmin,deleteAdmin } = useAdmins();
+  const { admins, loading, fetchAdmins, addAdmin, updateAdmin, deleteAdmin } =
+    useAdmins();
 
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // all, active, inactive
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedAdminId, setSelectedAdminId] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
   };
 
-  const handleEdit = (user) => {
+  const handleEdit = (admin) => {
     setForm({
-      id: user.id,
-      avatar: user.user.avatar,
-      firstName: user.user.firstName,
-      lastName: user.user.lastName,
-      email: user.user.email,
-      phone: user.user.phone,
-      address: user.user.address,
-      isActive: user.user.isActive,
+      id: admin.id,
+      avatar: admin.user.avatar,
+      firstName: admin.user.firstName,
+      lastName: admin.user.lastName,
+      email: admin.user.email,
+      phone: admin.user.phone,
+      address: admin.user.address,
+      isActive: admin.user.isActive,
+      username: admin.user.username || "",
+      password: "",
     });
     setIsEdit(true);
     setShowForm(true);
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Bạn có chắc muốn xóa người dùng này không?")) {
+    if (window.confirm("Bạn có chắc muốn xóa quản trị viên này không?")) {
       await deleteAdmin(id);
       fetchAdmins();
+      setSelectedAdminId(null);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData();
-    formData.append("id", form.id || "");
+    if (isEdit) formData.append("id", form.id);
     formData.append("firstName", form.firstName);
     formData.append("lastName", form.lastName);
     formData.append("email", form.email);
     formData.append("phone", form.phone);
     formData.append("address", form.address);
-    formData.append("isActive", form.isActive ? "true" : "false");
+    formData.append("isActive", form.isActive);
     if (form.avatar instanceof File) {
       formData.append("file", form.avatar);
     }
     if (!isEdit) {
-      formData.append("username", form.username);
       formData.append("password", form.password);
+      formData.append("username", form.username); // sửa lỗi thêm adimin
+    } else {
+      if (form.username) {
+        formData.append("username", form.username);
+      }
+      if (form.password) {
+        formData.append("password", form.password);
+      }
     }
 
     try {
@@ -81,6 +94,7 @@ const Admins = () => {
       fetchAdmins();
     } catch (error) {
       console.error("Lỗi khi gửi dữ liệu:", error);
+      toast.error( error.response.data);
     }
   };
 
@@ -93,25 +107,24 @@ const Admins = () => {
     setSearchTerm("");
   };
 
-  // Lọc và tìm kiếm members
-  const filteredMembers = useMemo(() => {
-    return admins.filter((member) => {
-      const user = member.user;
+  const filteredAdmins = useMemo(() => {
+    return admins.filter((admin) => {
+      const user = admin.user;
       const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
       const email = user.email.toLowerCase();
       const phone = user.phone || "";
       const address = user.address || "";
-      
-      // Tìm kiếm theo từ khóa
-      const matchesSearch = searchTerm === "" || 
+
+      const matchesSearch =
+        searchTerm === "" ||
         fullName.includes(searchTerm.toLowerCase()) ||
         email.includes(searchTerm.toLowerCase()) ||
         phone.includes(searchTerm.toLowerCase()) ||
         address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.id.toString().includes(searchTerm);
+        admin.id.toString().includes(searchTerm);
 
-      // Lọc theo trạng thái
-      const matchesStatus = statusFilter === "all" ||
+      const matchesStatus =
+        statusFilter === "all" ||
         (statusFilter === "active" && user.isActive) ||
         (statusFilter === "inactive" && !user.isActive);
 
@@ -119,17 +132,20 @@ const Admins = () => {
     });
   }, [admins, searchTerm, statusFilter]);
 
+  const handleRowClick = (adminId) => {
+    setSelectedAdminId(selectedAdminId === adminId ? null : adminId);
+  };
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold mb-4 text-indigo-700">
-        Quản lý Người dùng
+    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
+      
+      <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">
+        Quản lý Admin
       </h2>
 
-      {/* Thanh tìm kiếm và bộ lọc */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          {/* Thanh tìm kiếm */}
-          <div className="relative flex-1">
+      <div className="mb-6 bg-white p-4 rounded-lg shadow">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div className="relative md:col-span-2">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <FaSearch className="h-5 w-5 text-gray-400" />
             </div>
@@ -150,57 +166,46 @@ const Admins = () => {
             )}
           </div>
 
-          {/* Bộ lọc trạng thái */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Trạng thái:</label>
+          <div className="grid grid-cols-2 gap-4">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
-              <option value="all">Tất cả</option>
+              <option value="all">Tất cả trạng thái</option>
               <option value="active">Hoạt động</option>
               <option value="inactive">Không hoạt động</option>
             </select>
+            <button
+              onClick={() => {
+                setForm(initialForm);
+                setIsEdit(false);
+                setShowForm(true);
+              }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 whitespace-nowrap"
+            >
+              Thêm Admin
+            </button>
           </div>
-
-          {/* Button thêm user */}
-          <button
-            onClick={() => {
-              setForm(initialForm);
-              setIsEdit(false);
-              setShowForm(true);
-            }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 whitespace-nowrap"
-          >
-            ➕ Thêm Người dùng
-          </button>
         </div>
-
-        {/* Thống kê */}
         <div className="mt-3 text-sm text-gray-600">
-          Hiển thị {filteredMembers.length} / {admins.length} người dùng
-          {searchTerm && ` cho "${searchTerm}"`}
+          Hiển thị {filteredAdmins.length} / {admins.length} kết quả
         </div>
       </div>
 
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white w-full max-w-2xl p-6 rounded shadow-lg relative">
+          <div className="bg-white w-full max-w-2xl p-6 rounded-lg shadow-lg relative">
             <button
               onClick={handleCancel}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
             >
-              ✖
+              &times;
             </button>
             <h3 className="text-xl font-semibold mb-4 text-indigo-700">
-              {isEdit ? "Cập nhật người dùng" : "Thêm người dùng"}
+              {isEdit ? "Cập nhật Admin" : "Thêm Admin mới"}
             </h3>
-
-            <form
-              onSubmit={handleSubmit}
-              className="grid gap-4 sm:grid-cols-2"
-            >
+            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
               <img
                 src={
                   form.avatar instanceof File
@@ -251,30 +256,28 @@ const Admins = () => {
                 value={form.address}
                 onChange={handleInputChange}
                 placeholder="Địa chỉ"
-                className="border px-4 py-2 rounded"
+                className="col-span-2 border px-4 py-2 rounded"
               />
-              {!isEdit && (
-                <>
-                  <input
-                    type="text"
-                    name="username"
-                    value={form.username}
-                    onChange={handleInputChange}
-                    placeholder="Tên đăng nhập"
-                    className="border px-4 py-2 rounded"
-                    required
-                  />
-                  <input
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleInputChange}
-                    placeholder="Mật khẩu"
-                    className="border px-4 py-2 rounded"
-                    required
-                  />
-                </>
-              )}
+
+              <input
+                type="text"
+                name="username"
+                value={form.username}
+                onChange={handleInputChange}
+                placeholder="Tên đăng nhập"
+                className="border px-4 py-2 rounded"
+                required
+              />
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleInputChange}
+                placeholder={isEdit ? "Để trống nếu không thay đổi mật khẩu" : "Mật khẩu"}
+                className="border px-4 py-2 rounded"
+                required={!isEdit}
+              />
+
               <input
                 type="file"
                 name="avatar"
@@ -282,9 +285,8 @@ const Admins = () => {
                 onChange={(e) =>
                   setForm({ ...form, avatar: e.target.files[0] })
                 }
-                className="border px-4 py-2 rounded"
+                className="col-span-2 border px-4 py-2 rounded"
               />
-
               <label className="flex items-center gap-2 col-span-2">
                 <input
                   type="checkbox"
@@ -315,90 +317,98 @@ const Admins = () => {
         </div>
       )}
 
-      {/* Bảng hiển thị */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        {filteredMembers.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {searchTerm || statusFilter !== "all" 
-              ? "Không tìm thấy người dùng nào phù hợp với điều kiện tìm kiếm"
-              : "Chưa có người dùng nào"
-            }
-          </div>
-        ) : (
-          <table className="w-full border border-gray-200">
-            <thead className="bg-gray-100">
+      <div className="bg-white shadow-lg rounded-lg overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 text-left text-gray-600 uppercase">
+            <tr>
+              <th className="py-3 px-4">ID</th>
+              <th className="py-3 px-4">Avatar</th>
+              <th className="py-3 px-4">Họ tên</th>
+              <th className="py-3 px-4">Email</th>
+              <th className="py-3 px-4">Điện thoại</th>
+              <th className="py-3 px-4">Ngày tạo</th>
+              <th className="py-3 px-4 text-center">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
               <tr>
-                <th className="py-3 px-4 border-b text-left">ID</th>
-                <th className="py-3 px-4 border-b text-left">Avatar</th>
-                <th className="py-3 px-4 border-b text-left">Họ tên</th>
-                <th className="py-3 px-4 border-b text-left">Email</th>
-                <th className="py-3 px-4 border-b text-left">Điện thoại</th>
-                <th className="py-3 px-4 border-b text-left">Địa chỉ</th>
-                <th className="py-3 px-4 border-b text-left">Ngày tạo</th>
-                <th className="py-3 px-4 border-b text-left">Trạng thái</th>
-                <th className="py-3 px-4 border-b text-center">Hành động</th>
+                <td colSpan="7" className="text-center py-10">
+                  <LoadingSpinner />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredMembers.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border-b">{u.id}</td>
-                  <td className="py-2 px-4 border-b">
-                    <img
-                      src={u.user.avatar || "default-avatar.png"}
-                      alt="avatar"
-                      className="w-10 h-10 rounded-full"
-                    />
-                  </td>
-                  <td className="py-2 px-4 border-b">
-                    {u.user.firstName} {u.user.lastName}
-                  </td>
-                  <td className="py-2 px-4 border-b">{u.user.email}</td>
-                  <td className="py-2 px-4 border-b">{u.user.phone}</td>
-                  <td className="py-2 px-4 border-b">{u.user.address}</td>
-                  <td className="py-2 px-4 border-b">
-                    {new Date(u.user.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="py-2 px-4 border-b">
-                    <div className="flex justify-center">
-                      {u.user.isActive ? (
-                        <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
+            ) : filteredAdmins.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="text-center py-10 text-gray-500">
+                  Không tìm thấy dữ liệu.
+                </td>
+              </tr>
+            ) : (
+              filteredAdmins.map((admin) => (
+                <React.Fragment key={admin.id}>
+                  <tr
+                    className={`cursor-pointer hover:bg-indigo-50 transition-colors ${
+                      selectedAdminId === admin.id ? "bg-indigo-100" : ""
+                    }`}
+                    onClick={() => handleRowClick(admin.id)}
+                  >
+                    <td className="py-3 px-4 font-medium">{admin.id}</td>
+                    <td className="py-3 px-4">
+                      <img
+                        src={admin.user.avatar}
+                        alt="avatar"
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    </td>
+                    <td className="py-3 px-4">{`${admin.user.firstName} ${admin.user.lastName}`}</td>
+                    <td className="py-3 px-4">{admin.user.email}</td>
+                    <td className="py-3 px-4">{admin.user.phone}</td>
+                    <td className="py-3 px-4">
+                      {new Date(admin.user.createdAt).toLocaleDateString(
+                        "vi-VN"
                       )}
-                    </div>
-                  </td>
-                  <td className="py-2 px-4 border-b text-center">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => handleEdit(u)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(u.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Xóa
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {admin.user.isActive ? (
+                        <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
+                          Hoạt động
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
+                          Tạm ngưng
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+
+                  {selectedAdminId === admin.id && (
+                    <tr className="bg-gray-100">
+                      <td colSpan="7" className="py-3 px-4">
+                        <div className="flex justify-end items-center gap-3">
+                          <span className="text-sm font-medium text-gray-700">
+                            Hành động:
+                          </span>
+                          <button
+                            onClick={() => handleEdit(admin)}
+                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <FaEdit /> Sửa
+                          </button>
+                          <button
+                            onClick={() => handleDelete(admin.id)}
+                            className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <FaTrash /> Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
